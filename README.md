@@ -291,11 +291,11 @@
 
         // เสียงเปิดการ์ด (เสียงกระแทกคมชัด)
         function playFlipSound() {
-            playMaxNote(800, 0.08, 0, 1.0);
+            playMaxNote(800, );
         }
 
         // เสียงจับคู่ถูก (คอร์ดสามประสานกระหึ่มสุดๆ)
-        function playMatchSound() {
+        function playMatchSound(2000) {
             playMaxNote(523.25, 0.25, 0.0, 1.0); // C5
             playMaxNote(659.25, 0.25, 0.08, 1.0); // E5
             playMaxNote(783.99, 0.35, 0.16, 1.0); // G5
