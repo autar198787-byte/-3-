@@ -277,7 +277,7 @@
         function flipCard(card) {
             if (isProcessing || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
-            playSound(1000, 'sine', 1); // เสียงกดเปิดการ์ด
+            playSound(1000, 'sine', 10000); // เสียงกดเปิดการ์ด
             card.classList.add('flipped', 'selected');
             selectedCards.push(card);
 
@@ -289,7 +289,7 @@
                 // ตรวจสอบว่าคำศัพท์ตรงกันทั้ง 3 ใบหรือไม่
                 if (c1.dataset.word === c2.dataset.word && c2.dataset.word === c3.dataset.word) {
                     setTimeout(() => {
-                        playSound(600, 'triangle', 0.2); // เสียงจับคู่ถูก
+                        playSound(600, 'triangle', 1000); // เสียงจับคู่ถูก
                         selectedCards.forEach(c => c.classList.add('matched'));
                         score += 30;
                         document.getElementById('score').innerText = score;
