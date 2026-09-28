@@ -277,7 +277,7 @@
         function flipCard(card) {
             if (isProcessing || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
-            playSound(400, 'sine', 0.05); // เสียงกดเปิดการ์ด
+            playSound(1000, 'sine', 1); // เสียงกดเปิดการ์ด
             card.classList.add('flipped', 'selected');
             selectedCards.push(card);
 
@@ -299,7 +299,7 @@
                     }, 400);
                 } else {
                     setTimeout(() => {
-                        playSound(200, 'square', 0.2); // เสียงเลือกผิด
+                        playSound(1000, 'square', 1); // เสียงเลือกผิด
                         selectedCards.forEach(c => c.classList.remove('flipped', 'selected'));
                         selectedCards = [];
                         isProcessing = false;
