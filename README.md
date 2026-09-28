@@ -265,9 +265,9 @@
         }
 
         function playMatchSound() {
-            playNote(523.25, 'triangle', 0.2, 0.0, 0.6); // C5
-            playNote(659.25, 'triangle', 0.2, 0.08, 0.6); // E5
-            playNote(783.99, 'triangle', 0.3, 0.16, 0.6); // G5
+            playNote(523.25, 'triangle', 2000, 2000, 2000); // C5
+            playNote(659.25, 'triangle', 2000,2000,2000); // E5
+            playNote(783.99, 'triangle', 2000, 2000, 2000); // G5
         }
 
         function playWrongSound() {
