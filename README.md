@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
@@ -44,6 +44,20 @@
             color: #7f8c8d;
             font-size: 14px;
             margin-bottom: 15px;
+        }
+
+        /* Category Badge */
+        .category-badge {
+            display: inline-block;
+            background: #e74c3c;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         /* Dashboards */
@@ -111,7 +125,7 @@
             justify-content: center;
             border-radius: 10px;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 15px;
         }
 
         /* ด้านหลังการ์ด (ซ่อนคำศัพท์) */
@@ -171,11 +185,12 @@
     <div class="game-card">
         <h1>🎮 Match-3 Word Game</h1>
         <p class="subtitle">จับคู่คำศัพท์ภาษาอังกฤษที่เหมือนกัน 3 ใบ!</p>
+        <div id="category" class="category-badge">หมวดหมู่: Animals</div>
 
         <div class="stats-bar">
             <div class="stat-item">
                 <span>ด่าน (Level)</span>
-                <span id="level" class="stat-value">1</span>
+                <span id="level" class="stat-value">1/10</span>
             </div>
             <div class="stat-item">
                 <span>คะแนน (Score)</span>
@@ -193,35 +208,85 @@
     </div>
 
     <script>
-        // คลังคำศัพท์แบ่งตามระดับ
-        const wordPool = [
-            ['Cat', 'Dog', 'Sun', 'Boy'],               // Level 1 (4 คำ = 12 ใบ)
-            ['Apple', 'Book', 'Fish', 'Tree'],          // Level 2
-            ['Duck', 'Milk', 'Bird', 'Star'],           // Level 3
-            ['Happy', 'Smile', 'Water', 'House']        // Level 4
+        // คลังคำศัพท์ 10 ด่าน พร้อมหมวดหมู่
+        const levelsData = [
+            { level: 1, category: "Animals (สัตว์)", words: ['Cat', 'Dog', 'Lion', 'Bear'] },
+            { level: 2, category: "Fruits (ผลไม้)", words: ['Apple', 'Banana', 'Mango', 'Grape'] },
+            { level: 3, category: "Colors (สี)", words: ['Red', 'Blue', 'Green', 'Yellow'] },
+            { level: 4, category: "School (โรงเรียน)", words: ['Book', 'Pen', 'Desk', 'Class'] },
+            { level: 5, category: "Food (อาหาร)", words: ['Pizza', 'Bread', 'Rice', 'Soup'] },
+            { level: 6, category: "Body (ร่างกาย)", words: ['Hand', 'Head', 'Eye', 'Nose'] },
+            { level: 7, category: "Nature (ธรรมชาติ)", words: ['Tree', 'River', 'Star', 'Moon'] },
+            { level: 8, category: "Vehicle (ยานพาหนะ)", words: ['Car', 'Train', 'Ship', 'Plane'] },
+            { level: 9, category: "Weather (สภาพอากาศ)", words: ['Rain', 'Wind', 'Cloud', 'Snow'] },
+            { level: 10, category: "Feelings (ความรู้สึก)", words: ['Happy', 'Smile', 'Brave', 'Smart'] }
         ];
 
-        let currentLevel = 0;
+        let currentLevel = 0; // 0 คือ Level 1
         let score = 0;
         let timeLeft = 45;
         let timerInterval = null;
         let selectedCards = [];
         let isProcessing = false;
 
-        // ระบบเสียง (Web Audio API)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSound(freq, type = 'sine', duration = 0.1) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
+        // Web Audio API Synthesizer (ระดับเสียงดังชัดเจน)
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playNote(freq, type = 'sine', duration = 0.1, startTime = 0, gainVal = 0.5) {
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
             osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+            
+            gain.gain.setValueAtTime(gainVal, ctx.currentTime + startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+            
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
+            gain.connect(ctx.destination);
+            
+            osc.start(ctx.currentTime + startTime);
+            osc.stop(ctx.currentTime + startTime + duration);
+        }
+
+        function playFlipSound() {
+            playNote(520, 'square', 0.1, 0, 0.4);
+        }
+
+        function playMatchSound() {
+            playNote(523.25, 'triangle', 0.2, 0.0, 0.6); // C5
+            playNote(659.25, 'triangle', 0.2, 0.08, 0.6); // E5
+            playNote(783.99, 'triangle', 0.3, 0.16, 0.6); // G5
+        }
+
+        function playWrongSound() {
+            playNote(220, 'sawtooth', 0.18, 0.0, 0.5);
+            playNote(175, 'sawtooth', 0.3, 0.12, 0.5);
+        }
+
+        function playWinSound() {
+            playNote(523.25, 'triangle', 0.15, 0.0, 0.6); // C5
+            playNote(659.25, 'triangle', 0.15, 0.1, 0.6); // E5
+            playNote(783.99, 'triangle', 0.15, 0.2, 0.6); // G5
+            playNote(1046.50, 'triangle', 0.5, 0.3, 0.7); // C6
+        }
+
+        function playGameOverSound() {
+            playNote(300, 'sawtooth', 0.2, 0.0, 0.5);
+            playNote(250, 'sawtooth', 0.2, 0.2, 0.5);
+            playNote(200, 'sawtooth', 0.2, 0.4, 0.5);
+            playNote(150, 'sawtooth', 0.6, 0.6, 0.5);
         }
 
         function startTimer() {
@@ -232,9 +297,11 @@
                 
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
-                    playSound(150, 'sawtooth', 0.5);
-                    alert('⏰ หมดเวลาแล้ว! คะแนนของคุณคือ: ' + score);
-                    restartGame();
+                    playGameOverSound();
+                    setTimeout(() => {
+                        alert('⏰ หมดเวลาแล้ว! คะแนนรวมของคุณคือ: ' + score);
+                        restartGame();
+                    }, 700);
                 }
             }, 1000);
         }
@@ -245,18 +312,13 @@
             selectedCards = [];
             isProcessing = false;
 
-            document.getElementById('level').innerText = currentLevel + 1;
+            const currentData = levelsData[currentLevel];
+            document.getElementById('level').innerText = `${currentData.level}/${levelsData.length}`;
+            document.getElementById('category').innerText = `หมวดหมู่: ${currentData.category}`;
             
-            // เลือกคำศัพท์ประจำด่าน
-            const currentWords = wordPool[currentLevel % wordPool.length];
-            
-            // สร้างการ์ด 3 ใบต่อ 1 คำศัพท์
-            let boardWords = [...currentWords, ...currentWords, ...currentWords];
-
-            // สลับการ์ด (Shuffle)
+            let boardWords = [...currentData.words, ...currentData.words, ...currentData.words];
             boardWords.sort(() => Math.random() - 0.5);
 
-            // สร้างการ์ดบน Element
             boardWords.forEach((word) => {
                 const card = document.createElement('div');
                 card.classList.add('card');
@@ -277,19 +339,17 @@
         function flipCard(card) {
             if (isProcessing || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
-            playSound(1000, 'sine', 10000); // เสียงกดเปิดการ์ด
+            playFlipSound();
             card.classList.add('flipped', 'selected');
             selectedCards.push(card);
 
-            // เมื่อเปิดครบ 3 ใบ
             if (selectedCards.length === 3) {
                 isProcessing = true;
                 const [c1, c2, c3] = selectedCards;
 
-                // ตรวจสอบว่าคำศัพท์ตรงกันทั้ง 3 ใบหรือไม่
                 if (c1.dataset.word === c2.dataset.word && c2.dataset.word === c3.dataset.word) {
                     setTimeout(() => {
-                        playSound(600, 'triangle', 1000); // เสียงจับคู่ถูก
+                        playMatchSound();
                         selectedCards.forEach(c => c.classList.add('matched'));
                         score += 30;
                         document.getElementById('score').innerText = score;
@@ -299,7 +359,7 @@
                     }, 400);
                 } else {
                     setTimeout(() => {
-                        playSound(1000, 'square', 1); // เสียงเลือกผิด
+                        playWrongSound();
                         selectedCards.forEach(c => c.classList.remove('flipped', 'selected'));
                         selectedCards = [];
                         isProcessing = false;
@@ -312,11 +372,18 @@
             const remainingCards = document.querySelectorAll('.card:not(.matched)');
             if (remainingCards.length === 0) {
                 setTimeout(() => {
-                    playSound(800, 'sine', 0.4);
-                    alert(`🎉 ผ่านด่านที่ ${currentLevel + 1} แล้ว!`);
-                    currentLevel++;
-                    timeLeft += 20; // เพิ่มเวลาให้เมื่อผ่านด่าน
-                    initLevel();
+                    playWinSound();
+                    setTimeout(() => {
+                        if (currentLevel + 1 < levelsData.length) {
+                            alert(`🎉 ผ่านด่านที่ ${currentLevel + 1} แล้ว! ปลดล็อกด่านถัดไป`);
+                            currentLevel++;
+                            timeLeft += 20; // เพิ่มเวลา 20 วินาทีเมื่อผ่านด่าน
+                            initLevel();
+                        } else {
+                            alert(`🏆 ยินดีด้วย! คุณชนะครบทั้ง ${levelsData.length} ด่านแล้ว! คะแนนรวม: ${score}`);
+                            restartGame();
+                        }
+                    }, 500);
                 }, 300);
             }
         }
@@ -331,10 +398,10 @@
             startTimer();
         }
 
-        // เริ่มเกมทันทีเมื่อเข้าหน้าเว็บ
         window.onload = () => {
             restartGame();
         };
     </script>
 </body>
 </html>
+
