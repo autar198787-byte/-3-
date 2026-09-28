@@ -222,19 +222,36 @@
             { level: 10, category: "Feelings (ความรู้สึก)", words: ['Happy', 'Smile', 'Brave', 'Smart'] }
         ];
 
-        let currentLevel = 0; // 0 คือ Level 1
+        let currentLevel = 0;
         let score = 0;
         let timeLeft = 45;
         let timerInterval = null;
         let selectedCards = [];
         let isProcessing = false;
 
-        // Web Audio API Synthesizer (ระดับเสียงดังชัดเจน)
+        // Web Audio API Synthesizer (ซ้อน Oscillator + Dynamics Compressor + Master Booster)
         let audioCtx = null;
+        let masterGain = null;
+        let compressor = null;
 
         function getAudioContext() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // ตัวบีบอัดสัญญาณป้องกันเสียงแตกเมื่อเร่งระดับความดังสุดๆ
+                compressor = audioCtx.createDynamicsCompressor();
+                compressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
+                compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+                compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+                compressor.attack.setValueAtTime(0, audioCtx.currentTime);
+                compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
+                // Master Gain เร่งความดังระดับสูงสุด (8.0x)
+                masterGain = audioCtx.createGain();
+                masterGain.gain.setValueAtTime(8.0, audioCtx.currentTime);
+
+                compressor.connect(masterGain);
+                masterGain.connect(audioCtx.destination);
             }
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
@@ -242,51 +259,69 @@
             return audioCtx;
         }
 
-        function playNote(freq, type = 'sine', duration = 0.1, startTime = 0, gainVal = 0.5) {
+        // เล่นเสียงแบบเลเยอร์คู่ (Square + Sawtooth) เพิ่มแรงปะทะและความดังสะใจ
+        function playMaxNote(freq, duration = 0.1, startTime = 0, gainVal = 1.0) {
             const ctx = getAudioContext();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
             
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
-            
-            gain.gain.setValueAtTime(gainVal, ctx.currentTime + startTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
-            
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.start(ctx.currentTime + startTime);
-            osc.stop(ctx.currentTime + startTime + duration);
+            // Oscillator 1: คลื่น Square (เสียงแน่น มีพลัง)
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'square';
+            osc1.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+            gain1.gain.setValueAtTime(gainVal, ctx.currentTime + startTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
+            osc1.connect(gain1);
+            gain1.connect(compressor);
+
+            // Oscillator 2: คลื่น Sawtooth (เพิ่มความกว้างและเสียงเบสหนา)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sawtooth';
+            osc2.frequency.setValueAtTime(freq / 2, ctx.currentTime + startTime); // octave ต่ำกว่าเพื่อเพิ่มพลังเบส
+            gain2.gain.setValueAtTime(gainVal * 0.7, ctx.currentTime + startTime);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
+            osc2.connect(gain2);
+            gain2.connect(compressor);
+
+            osc1.start(ctx.currentTime + startTime);
+            osc1.stop(ctx.currentTime + startTime + duration);
+            osc2.start(ctx.currentTime + startTime);
+            osc2.stop(ctx.currentTime + startTime + duration);
         }
 
+        // เสียงเปิดการ์ด (เสียงกระแทกคมชัด)
         function playFlipSound() {
-            playNote(520, 'square', 0.1, 0, 0.4);
+            playMaxNote(800, 0.08, 0, 1.0);
         }
 
+        // เสียงจับคู่ถูก (คอร์ดสามประสานกระหึ่มสุดๆ)
         function playMatchSound() {
-            playNote(523.25, 'triangle', 2000, 2000, 2000); // C5
-            playNote(659.25, 'triangle', 2000,2000,2000); // E5
-            playNote(783.99, 'triangle', 2000, 2000, 2000); // G5
+            playMaxNote(523.25, 0.25, 0.0, 1.0); // C5
+            playMaxNote(659.25, 0.25, 0.08, 1.0); // E5
+            playMaxNote(783.99, 0.35, 0.16, 1.0); // G5
+            playMaxNote(1046.50, 0.45, 0.24, 1.0); // C6
         }
 
+        // เสียงจับคู่ผิด (เสียงหวอยระดับความดังทะลุจอ)
         function playWrongSound() {
-            playNote(220, 'sawtooth', 0.18, 0.0, 0.5);
-            playNote(175, 'sawtooth', 0.3, 0.12, 0.5);
+            playMaxNote(240, 0.2, 0.0, 1.0);
+            playMaxNote(160, 0.35, 0.12, 1.0);
         }
 
+        // เสียงผ่านด่าน (Fanfare ชัยชนะพลังเสียงกระหึ่ม)
         function playWinSound() {
-            playNote(523.25, 'triangle', 0.15, 0.0, 0.6); // C5
-            playNote(659.25, 'triangle', 0.15, 0.1, 0.6); // E5
-            playNote(783.99, 'triangle', 0.15, 0.2, 0.6); // G5
-            playNote(1046.50, 'triangle', 0.5, 0.3, 0.7); // C6
+            playMaxNote(523.25, 0.15, 0.0, 1.0); // C5
+            playMaxNote(659.25, 0.15, 0.1, 1.0); // E5
+            playMaxNote(783.99, 0.15, 0.2, 1.0); // G5
+            playMaxNote(1046.50, 0.6, 0.3, 1.0); // C6
         }
 
+        // เสียงหมดเวลา (Game Over เบสทุ้มกระแทกดัง)
         function playGameOverSound() {
-            playNote(300, 'sawtooth', 0.2, 0.0, 0.5);
-            playNote(250, 'sawtooth', 0.2, 0.2, 0.5);
-            playNote(200, 'sawtooth', 0.2, 0.4, 0.5);
-            playNote(150, 'sawtooth', 0.6, 0.6, 0.5);
+            playMaxNote(350, 0.2, 0.0, 1.0);
+            playMaxNote(280, 0.2, 0.2, 1.0);
+            playMaxNote(210, 0.2, 0.4, 1.0);
+            playMaxNote(140, 0.7, 0.6, 1.0);
         }
 
         function startTimer() {
@@ -349,7 +384,7 @@
 
                 if (c1.dataset.word === c2.dataset.word && c2.dataset.word === c3.dataset.word) {
                     setTimeout(() => {
-                        playMatchSound();
+                        playMatchSound(2000);
                         selectedCards.forEach(c => c.classList.add('matched'));
                         score += 30;
                         document.getElementById('score').innerText = score;
@@ -359,7 +394,7 @@
                     }, 400);
                 } else {
                     setTimeout(() => {
-                        playWrongSound();
+                        playWrongSound(2000);
                         selectedCards.forEach(c => c.classList.remove('flipped', 'selected'));
                         selectedCards = [];
                         isProcessing = false;
@@ -372,12 +407,12 @@
             const remainingCards = document.querySelectorAll('.card:not(.matched)');
             if (remainingCards.length === 0) {
                 setTimeout(() => {
-                    playWinSound();
-                    setTimeout(() => {
+                    playWinSound(200);
+                    setTimeout((200) => {
                         if (currentLevel + 1 < levelsData.length) {
                             alert(`🎉 ผ่านด่านที่ ${currentLevel + 1} แล้ว! ปลดล็อกด่านถัดไป`);
                             currentLevel++;
-                            timeLeft += 20; // เพิ่มเวลา 20 วินาทีเมื่อผ่านด่าน
+                            timeLeft += 20;
                             initLevel();
                         } else {
                             alert(`🏆 ยินดีด้วย! คุณชนะครบทั้ง ${levelsData.length} ด่านแล้ว! คะแนนรวม: ${score}`);
@@ -404,4 +439,3 @@
     </script>
 </body>
 </html>
-
