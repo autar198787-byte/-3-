@@ -290,7 +290,7 @@
         }
 
         // เสียงเปิดการ์ด (เสียงกระแทกคมชัด)
-        function playFlipSound() {
+        function playFlipSound(2000) {
             playMaxNote(800, );
         }
 
